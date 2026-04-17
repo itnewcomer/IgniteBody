@@ -1,9 +1,56 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'exercise_database.dart';
 
-// MARK: - レベルシステム
+// MARK: - StatAxis（6軸）
+
+enum StatAxis {
+  chest('胸', '🫀'),
+  back('背中', '🔙'),
+  shoulder('肩', '⬆️'),
+  arms('腕', '💪'),
+  legs('脚', '🦵'),
+  abs('腹筋', '🌀');
+
+  const StatAxis(this.label, this.icon);
+  final String label;
+  final String icon;
+}
+
+// MARK: - BuildType（ビルドタイプ）
+
+enum BuildType {
+  standard('バランス型', '⚖️', [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+  power('パワー型', '🔥', [1.5, 1.2, 1.2, 1.5, 1.0, 0.8]),
+  endurance('持久型', '🏃', [0.8, 1.0, 0.8, 0.8, 1.5, 1.2]),
+  symmetric('対称型', '✨', [1.2, 1.2, 1.2, 1.2, 1.2, 1.2]),
+  upper('上半身型', '⬆️', [1.5, 1.5, 1.5, 1.5, 0.7, 0.7]),
+  lower('下半身型', '⬇️', [0.7, 0.8, 0.7, 0.7, 1.8, 1.5]);
+
+  const BuildType(this.label, this.icon, this.multipliers);
+  final String label;
+  final String icon;
+  final List<double> multipliers;
+
+  double multiplierFor(StatAxis axis) => multipliers[axis.index];
+
+  String get description {
+    switch (this) {
+      case BuildType.standard: return '全体的にバランスよく成長';
+      case BuildType.power: return '胸・腕の上半身筋力が得意';
+      case BuildType.endurance: return '脚・腹筋の持久力が得意';
+      case BuildType.symmetric: return '全軸が均等に少し強化';
+      case BuildType.upper: return '上半身全体が大きく伸びる';
+      case BuildType.lower: return '下半身・体幹が大きく伸びる';
+    }
+  }
+}
+
+// MARK: - LevelSystem
 
 class LevelSystem {
-  static const List<int> thresholds = [0, 50, 150, 300, 500, 800, 1200, 1800, 2600, 3600];
+  static const List<int> thresholds = [
+    0, 200, 800, 2000, 5000, 10000, 20000, 35000, 55000, 80000
+  ];
 
   static int level(int xp) {
     int lv = 0;
@@ -16,12 +63,16 @@ class LevelSystem {
   static double progress(int xp) {
     final lv = level(xp);
     final current = thresholds[lv];
-    final next = lv < thresholds.length - 1 ? thresholds[lv + 1] : thresholds[lv] + 1000;
+    final next = lv < thresholds.length - 1
+        ? thresholds[lv + 1]
+        : thresholds[lv] + 10000;
     return (xp - current) / (next - current);
   }
 
   static String avatar(int lv) {
-    const avatars = ['🌱', '🌿', '🍃', '🌳', '⚡', '🔥', '💪', '🧠', '✨', '🌟'];
+    const avatars = [
+      '🥚', '🐣', '🐥', '🦅', '⚡', '🔥', '💪', '🧠', '✨', '🌟'
+    ];
     return avatars[lv.clamp(0, avatars.length - 1)];
   }
 
@@ -46,29 +97,172 @@ class LevelSystem {
     final bonus = seconds >= 300 ? 5 : 0;
     return base + bonus;
   }
+
+  static int xpForVolume(int sets, int reps, double weight) {
+    final vol = sets * reps * (1.0 + weight / 50.0);
+    return vol.floor().clamp(1, 999999);
+  }
+
+  /// ゲイン合計 × 100（Swift互換）
+  static int xpForGains(Map<StatAxis, double> gains) {
+    final total = gains.values.fold(0.0, (a, b) => a + b);
+    return (total * 100).round().clamp(1, 999999);
+  }
 }
 
-// MARK: - 育成プロフィール
+// MARK: - BodyProfile
 
 class BodyProfile {
   static const _boxName = 'profile';
-  static const _xpKey = 'totalXP';
-
   static Box get _box => Hive.box(_boxName);
 
-  static int get totalXP => _box.get(_xpKey, defaultValue: 0) as int;
+  // XP
+  static int get totalXP => _box.get('totalXP', defaultValue: 0) as int;
+  static void addXP(int xp) => _box.put('totalXP', totalXP + xp);
 
-  static void addXP(int xp) {
-    _box.put(_xpKey, totalXP + xp);
+  // BuildType
+  static BuildType get buildType {
+    final name = _box.get('buildType', defaultValue: BuildType.standard.name) as String;
+    return BuildType.values.firstWhere(
+      (b) => b.name == name,
+      orElse: () => BuildType.standard,
+    );
+  }
+  static void setBuildType(BuildType bt) => _box.put('buildType', bt.name);
+
+  // Setup
+  static bool get isSetupDone => _box.get('setupDone', defaultValue: false) as bool;
+  static void completeSetup() => _box.put('setupDone', true);
+
+  // 6軸ステータス
+  static double getStat(StatAxis axis) =>
+      (_box.get('stat_${axis.name}', defaultValue: 0.0) as num).toDouble();
+  static double getPeak(StatAxis axis) =>
+      (_box.get('peak_${axis.name}', defaultValue: 0.0) as num).toDouble();
+
+  static void addGain(StatAxis axis, double gain) {
+    final newVal = getStat(axis) + gain;
+    _box.put('stat_${axis.name}', newVal);
+    if (newVal > getPeak(axis)) _box.put('peak_${axis.name}', newVal);
+    if (gain > 0) _setLastTrainDate(axis);
+    _setLastWorkoutDate();
   }
 
+  // ── 最終ワークアウト日 ──────────────────────────────────
+  static DateTime? get lastWorkoutDate {
+    final iso = _box.get('lastWorkoutDate') as String?;
+    return iso != null ? DateTime.tryParse(iso) : null;
+  }
+
+  static void _setLastWorkoutDate() =>
+      _box.put('lastWorkoutDate', DateTime.now().toIso8601String());
+
+  // ── 部位別最終トレ日 ──────────────────────────────────
+  static DateTime? lastTrainDate(StatAxis axis) {
+    final iso = _box.get('lastTrain_${axis.name}') as String?;
+    return iso != null ? DateTime.tryParse(iso) : null;
+  }
+
+  static void _setLastTrainDate(StatAxis axis) =>
+      _box.put('lastTrain_${axis.name}', DateTime.now().toIso8601String());
+
+  // ── 体重記録 ──────────────────────────────────────────
+  static void logBodyWeight(double kg) {
+    final today = DateTime.now();
+    final key =
+        'bw_${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    _box.put(key, kg);
+  }
+
+  static List<MapEntry<DateTime, double>> get bodyWeightHistory {
+    final entries = <MapEntry<DateTime, double>>[];
+    for (final key in _box.keys) {
+      final k = key.toString();
+      if (k.startsWith('bw_')) {
+        final dateStr = k.substring(3);
+        final date = DateTime.tryParse(dateStr);
+        final val = (_box.get(key) as num?)?.toDouble();
+        if (date != null && val != null) {
+          entries.add(MapEntry(date, val));
+        }
+      }
+    }
+    entries.sort((a, b) => a.key.compareTo(b.key));
+    return entries;
+  }
+
+  static double? get latestBodyWeight => bodyWeightHistory.lastOrNull?.value;
+
+  // ── デトレーニング（論文: Pelland 2026）─────────────────
+  // 1-7日: 変化なし
+  // 8-14日: -5%/週（余剰週数分）
+  // 15-28日: -10%/週
+  // 29日+: -15%/週（上限50%）
+  // 下限: peak × 50%
+
+  static void applyDetraining() {
+    final last = lastWorkoutDate;
+    if (last == null) return;
+    final today = DateTime.now();
+    final todayKey =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final prevKey = _box.get('lastDetrainDate') as String?;
+    if (prevKey == todayKey) return; // 今日は適用済み
+    _box.put('lastDetrainDate', todayKey);
+
+    final days = DateTime(today.year, today.month, today.day)
+        .difference(DateTime(last.year, last.month, last.day))
+        .inDays;
+    if (days <= 7) return;
+
+    final excessWeeks = (days - 7) / 7.0;
+    final double decayRate;
+    if (days <= 14) {
+      decayRate = 0.05 * excessWeeks;
+    } else if (days <= 28) {
+      decayRate = 0.10 * excessWeeks;
+    } else {
+      decayRate = (0.15 * excessWeeks).clamp(0.0, 0.50);
+    }
+
+    for (final axis in StatAxis.values) {
+      final current = getStat(axis);
+      final floor = getPeak(axis) * 0.5;
+      final newVal = (current * (1.0 - decayRate)).clamp(floor, 100.0);
+      _box.put('stat_${axis.name}', newVal);
+    }
+  }
+
+  static List<double> get allStats =>
+      StatAxis.values.map((a) => getStat(a)).toList();
+
+  // Dominant stat（ペットタイプ用）
+  static StatAxis get dominantStat {
+    StatAxis dominant = StatAxis.chest;
+    double max = -1;
+    for (final axis in StatAxis.values) {
+      final v = getStat(axis);
+      if (v > max) {
+        max = v;
+        dominant = axis;
+      }
+    }
+    return dominant;
+  }
+
+  // Level shortcuts
   static int get level => LevelSystem.level(totalXP);
   static double get levelProgress => LevelSystem.progress(totalXP);
   static String get avatar => LevelSystem.avatar(level);
   static String get levelTitle => LevelSystem.title(level);
+
+  // Reset
+  static Future<void> reset() async {
+    await _box.clear();
+  }
 }
 
-// MARK: - ワークアウトセッション
+// MARK: - WorkoutSession
 
 class WorkoutSession {
   final String exerciseName;
@@ -78,6 +272,10 @@ class WorkoutSession {
   final bool completed;
   final int earnedXP;
   final DateTime date;
+  final int? sets;
+  final int? reps;
+  final double? weight;
+  final Map<String, double> statGains;
 
   WorkoutSession({
     required this.exerciseName,
@@ -87,27 +285,43 @@ class WorkoutSession {
     required this.completed,
     required this.earnedXP,
     required this.date,
-  });
+    this.sets,
+    this.reps,
+    this.weight,
+    Map<String, double>? statGains,
+  }) : statGains = statGains ?? {};
 
   Map<String, dynamic> toMap() => {
-    'exerciseName': exerciseName,
-    'exerciseIcon': exerciseIcon,
-    'targetSeconds': targetSeconds,
-    'actualSeconds': actualSeconds,
-    'completed': completed,
-    'earnedXP': earnedXP,
-    'date': date.toIso8601String(),
-  };
+        'exerciseName': exerciseName,
+        'exerciseIcon': exerciseIcon,
+        'targetSeconds': targetSeconds,
+        'actualSeconds': actualSeconds,
+        'completed': completed,
+        'earnedXP': earnedXP,
+        'date': date.toIso8601String(),
+        if (sets != null) 'sets': sets,
+        if (reps != null) 'reps': reps,
+        if (weight != null) 'weight': weight,
+        'statGains': statGains,
+      };
 
   factory WorkoutSession.fromMap(Map map) => WorkoutSession(
-    exerciseName: map['exerciseName'] as String,
-    exerciseIcon: map['exerciseIcon'] as String,
-    targetSeconds: map['targetSeconds'] as int,
-    actualSeconds: map['actualSeconds'] as int,
-    completed: map['completed'] as bool,
-    earnedXP: map['earnedXP'] as int,
-    date: DateTime.parse(map['date'] as String),
-  );
+        exerciseName: map['exerciseName'] as String,
+        exerciseIcon: map['exerciseIcon'] as String,
+        targetSeconds: map['targetSeconds'] as int,
+        actualSeconds: map['actualSeconds'] as int,
+        completed: map['completed'] as bool,
+        earnedXP: map['earnedXP'] as int,
+        date: DateTime.parse(map['date'] as String),
+        sets: map['sets'] as int?,
+        reps: map['reps'] as int?,
+        weight: (map['weight'] as num?)?.toDouble(),
+        statGains: map['statGains'] != null
+            ? Map<String, double>.from(
+                (map['statGains'] as Map)
+                    .map((k, v) => MapEntry(k.toString(), (v as num).toDouble())))
+            : {},
+      );
 }
 
 class SessionStore {
@@ -121,21 +335,39 @@ class SessionStore {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  static void save(WorkoutSession session) {
-    _box.add(session.toMap());
-  }
+  static void save(WorkoutSession session) => _box.add(session.toMap());
 
   static List<WorkoutSession> last7Days() {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     return all.where((s) => s.date.isAfter(cutoff)).toList();
   }
+
+  static Set<String> workoutDateKeys() {
+    return all
+        .map((s) => '${s.date.year}-${s.date.month}-${s.date.day}')
+        .toSet();
+  }
+
+  static List<WorkoutSession> forExercise(String name) {
+    return all
+        .where((s) => s.exerciseName == name)
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  static List<WorkoutSession> thisWeek() {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = DateTime(monday.year, monday.month, monday.day);
+    return all.where((s) => s.date.isAfter(startOfWeek)).toList();
+  }
 }
 
-// MARK: - 種目
+// MARK: - ExerciseCategory
 
 enum ExerciseCategory {
-  move('動く'),
   strength('筋トレ'),
+  move('有酸素'),
   stretch('ストレッチ'),
   walk('散歩');
 
@@ -143,31 +375,35 @@ enum ExerciseCategory {
   final String label;
 }
 
+// MARK: - Exercise
+
 class Exercise {
   final String name;
   final String icon;
   final ExerciseCategory category;
   final int defaultSeconds;
   bool isActive;
-
+  final List<double> gainRates; // [chest, back, shoulder, arms, legs, abs]
   Exercise({
     required this.name,
     required this.icon,
     required this.category,
     required this.defaultSeconds,
     this.isActive = true,
-  });
+    List<double>? gainRates,
+  }) : gainRates = gainRates ?? List.filled(6, 0.0);
 
-  static List<Exercise> get defaults => [
-    Exercise(name: 'その場ジョギング',     icon: '🏃', category: ExerciseCategory.move,     defaultSeconds: 60),
-    Exercise(name: 'ジャンピングジャック', icon: '⬆️', category: ExerciseCategory.move,     defaultSeconds: 60),
-    Exercise(name: 'スクワット',          icon: '🦵', category: ExerciseCategory.strength, defaultSeconds: 60),
-    Exercise(name: '腕立て伏せ',          icon: '💪', category: ExerciseCategory.strength, defaultSeconds: 60),
-    Exercise(name: '体幹プランク',        icon: '🌀', category: ExerciseCategory.strength, defaultSeconds: 60),
-    Exercise(name: '全身ストレッチ',      icon: '🧘', category: ExerciseCategory.stretch,  defaultSeconds: 180),
-    Exercise(name: '深呼吸',             icon: '🌬️', category: ExerciseCategory.stretch,  defaultSeconds: 60),
-    Exercise(name: '散歩',               icon: '🚶', category: ExerciseCategory.walk,     defaultSeconds: 300),
-  ];
+  double gainFor(StatAxis axis) => gainRates[axis.index];
+
+  // 上位3軸を返す
+  List<MapEntry<StatAxis, double>> get topGains {
+    final entries = StatAxis.values
+        .map((a) => MapEntry(a, gainRates[a.index]))
+        .where((e) => e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return entries.take(3).toList();
+  }
 }
 
 class ExerciseStore {
@@ -176,29 +412,209 @@ class ExerciseStore {
 
   static List<Exercise> get all {
     if (_box.isEmpty) _seed();
-    return _box.values.map((e) {
-      final m = e as Map;
-      return Exercise(
-        name: m['name'] as String,
-        icon: m['icon'] as String,
-        category: ExerciseCategory.values.firstWhere((c) => c.name == m['category']),
-        defaultSeconds: m['defaultSeconds'] as int,
-        isActive: m['isActive'] as bool,
-      );
-    }).toList();
+    return _box.values.map(_fromMap).toList();
   }
 
-  static void _seed() {
-    for (final e in Exercise.defaults) {
-      _box.add({
+  static Exercise _fromMap(dynamic raw) {
+    final m = raw as Map;
+    return Exercise(
+      name: m['name'] as String,
+      icon: m['icon'] as String,
+      category: ExerciseCategory.values.firstWhere((c) => c.name == m['category']),
+      defaultSeconds: m['defaultSeconds'] as int,
+      isActive: m['isActive'] as bool? ?? true,
+      gainRates: m['gainRates'] != null
+          ? List<double>.from(
+              (m['gainRates'] as List).map((v) => (v as num).toDouble()))
+          : List.filled(6, 0.0),
+    );
+  }
+
+  static Map<String, dynamic> _toMap(Exercise e) => {
         'name': e.name,
         'icon': e.icon,
         'category': e.category.name,
         'defaultSeconds': e.defaultSeconds,
-        'isActive': true,
-      });
+        'isActive': e.isActive,
+        'gainRates': e.gainRates,
+      };
+
+  static void _seed() {
+    for (final e in ExerciseDatabase.all) {
+      _box.add(_toMap(e));
     }
   }
 
+  static void toggle(int index, bool val) {
+    final map = Map<String, dynamic>.from(_box.getAt(index) as Map);
+    map['isActive'] = val;
+    _box.putAt(index, map);
+  }
+
   static List<Exercise> get active => all.where((e) => e.isActive).toList();
+
+  static Exercise? findByName(String name) {
+    try {
+      return all.firstWhere((e) => e.name == name);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// カスタム種目を追加
+  static void addCustom(Exercise e) => _box.add(_toMap(e));
+
+
+  // データ移行: gainRates がない古いデータを再シード
+  static void migrateIfNeeded() {
+    if (_box.isEmpty) return;
+    final first = _box.getAt(0) as Map?;
+    if (first != null && !first.containsKey('gainRates')) {
+      _box.clear();
+      _seed();
+    }
+  }
+}
+
+// MARK: - WorkoutPlan
+
+class WorkoutPlanExercise {
+  final String exerciseName;
+  int targetSets;
+  int targetReps;
+  double targetWeight;
+
+  WorkoutPlanExercise({
+    required this.exerciseName,
+    this.targetSets = 3,
+    this.targetReps = 10,
+    this.targetWeight = 0,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'exerciseName': exerciseName,
+        'targetSets': targetSets,
+        'targetReps': targetReps,
+        'targetWeight': targetWeight,
+      };
+
+  factory WorkoutPlanExercise.fromMap(Map map) => WorkoutPlanExercise(
+        exerciseName: map['exerciseName'] as String,
+        targetSets: map['targetSets'] as int? ?? 3,
+        targetReps: map['targetReps'] as int? ?? 10,
+        targetWeight: (map['targetWeight'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class WorkoutPlan {
+  String name;
+  String icon;
+  List<WorkoutPlanExercise> exercises;
+  final DateTime createdAt;
+
+  WorkoutPlan({
+    required this.name,
+    this.icon = '🏋️',
+    List<WorkoutPlanExercise>? exercises,
+    DateTime? createdAt,
+  })  : exercises = exercises ?? [],
+        createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'icon': icon,
+        'exercises': exercises.map((e) => e.toMap()).toList(),
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory WorkoutPlan.fromMap(Map map) => WorkoutPlan(
+        name: map['name'] as String,
+        icon: map['icon'] as String? ?? '🏋️',
+        exercises: (map['exercises'] as List?)
+                ?.map((e) => WorkoutPlanExercise.fromMap(e as Map))
+                .toList() ??
+            [],
+        createdAt: map['createdAt'] != null
+            ? DateTime.parse(map['createdAt'] as String)
+            : DateTime.now(),
+      );
+}
+
+class WorkoutPlanStore {
+  static const _boxName = 'plans';
+  static Box get _box => Hive.box(_boxName);
+
+  static List<WorkoutPlan> get all =>
+      _box.values.map((e) => WorkoutPlan.fromMap(e as Map)).toList();
+
+  static void add(WorkoutPlan plan) => _box.add(plan.toMap());
+
+  static void update(int index, WorkoutPlan plan) =>
+      _box.putAt(index, plan.toMap());
+
+  static void delete(int index) => _box.deleteAt(index);
+}
+
+// MARK: - VideoEntry
+
+class VideoEntry {
+  final String id;
+  String url;
+  String title;
+  List<String> exerciseNames;
+
+  VideoEntry({
+    required this.id,
+    required this.url,
+    String? title,
+    List<String>? exerciseNames,
+  })  : title = title ?? '',
+        exerciseNames = exerciseNames ?? [];
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'url': url,
+        'title': title,
+        'exerciseNames': exerciseNames,
+      };
+
+  factory VideoEntry.fromMap(Map m) => VideoEntry(
+        id: m['id'] as String,
+        url: m['url'] as String,
+        title: m['title'] as String? ?? '',
+        exerciseNames:
+            List<String>.from(m['exerciseNames'] as List? ?? []),
+      );
+}
+
+class VideoStore {
+  static const _boxName = 'videos';
+  static Box get _box => Hive.box(_boxName);
+
+  static List<VideoEntry> get all =>
+      _box.values.map((e) => VideoEntry.fromMap(e as Map)).toList();
+
+  static void save(VideoEntry v) => _box.put(v.id, v.toMap());
+  static void delete(String id) => _box.delete(id);
+
+  static List<VideoEntry> forExercise(String name) =>
+      all.where((v) => v.exerciseNames.contains(name)).toList();
+
+  /// 種目をビデオに紐づける（なければ追加、あれば更新）
+  static void linkExercise(String videoId, String exerciseName) {
+    final v = all.firstWhere((e) => e.id == videoId,
+        orElse: () => throw StateError('not found'));
+    if (!v.exerciseNames.contains(exerciseName)) {
+      v.exerciseNames.add(exerciseName);
+      save(v);
+    }
+  }
+
+  /// 種目のリンクを解除
+  static void unlinkExercise(String videoId, String exerciseName) {
+    final v = all.firstWhere((e) => e.id == videoId,
+        orElse: () => throw StateError('not found'));
+    v.exerciseNames.remove(exerciseName);
+    save(v);
+  }
 }

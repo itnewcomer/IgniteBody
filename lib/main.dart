@@ -5,6 +5,8 @@ import 'home_view.dart';
 import 'workout_view.dart';
 import 'growth_view.dart';
 import 'settings_view.dart';
+import 'setup_view.dart';
+import 'models.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +14,12 @@ void main() async {
   await Hive.openBox('profile');
   await Hive.openBox('sessions');
   await Hive.openBox('exercises');
+  await Hive.openBox('plans');
+  await Hive.openBox('videos');
+  // 旧データの gainRates 移行
+  ExerciseStore.migrateIfNeeded();
+  // デトレーニング適用
+  BodyProfile.applyDetraining();
   runApp(const IgniteBodyApp());
 }
 
@@ -32,8 +40,35 @@ class IgniteBodyApp extends StatelessWidget {
         cardColor: AppColors.card,
         useMaterial3: true,
       ),
-      home: const MainTabView(),
+      home: const _RootView(),
     );
+  }
+}
+
+class _RootView extends StatefulWidget {
+  const _RootView();
+
+  @override
+  State<_RootView> createState() => _RootViewState();
+}
+
+class _RootViewState extends State<_RootView> {
+  bool _setupDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupDone = BodyProfile.isSetupDone;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_setupDone) {
+      return SetupView(onComplete: () {
+        setState(() => _setupDone = true);
+      });
+    }
+    return const MainTabView();
   }
 }
 
