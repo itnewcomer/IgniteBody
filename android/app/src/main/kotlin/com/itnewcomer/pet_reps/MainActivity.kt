@@ -1,4 +1,4 @@
-package com.itnewcomer.ignite_body
+package com.itnewcomer.pet_reps
 
 import io.flutter.embedding.android.FlutterActivity
 

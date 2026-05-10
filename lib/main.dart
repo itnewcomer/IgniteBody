@@ -19,16 +19,16 @@ void main() async {
   await Hive.openBox('videos');
   // 旧データの gainRates 移行
   ExerciseStore.migrateIfNeeded();
-  runApp(const IgniteBodyApp());
+  runApp(const PetRepsApp());
 }
 
-class IgniteBodyApp extends StatelessWidget {
-  const IgniteBodyApp({super.key});
+class PetRepsApp extends StatelessWidget {
+  const PetRepsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'IgniteBody',
+      title: 'Pet Reps',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: const ColorScheme.dark(

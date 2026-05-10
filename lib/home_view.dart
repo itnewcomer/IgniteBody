@@ -24,7 +24,7 @@ class HomeView extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'IgniteBody',
+                      'Pet Reps',
                       style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 22,

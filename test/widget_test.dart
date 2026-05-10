@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ignite_body/models.dart';
-import 'package:ignite_body/exercise_database.dart';
+import 'package:pet_reps/models.dart';
+import 'package:pet_reps/exercise_database.dart';
 
 void main() {
   // ── LevelSystem ───────────────────────────────────────

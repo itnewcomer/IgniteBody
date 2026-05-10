@@ -1,17 +1,13 @@
-# ignite_body
+# Pet Reps
 
-A new Flutter project.
+筋トレ記録 × ペット育成のFlutterアプリ。重量・回数・セットの王道ログに、6軸ステータスとペット進化を載せた一台。
 
-## Getting Started
+## コンセプト
+「ガチ筋トレログ × ポケモン的ペット育成」をニッチに、Flutter + Hive（ローカル永続化）で構築。詳細は [CLAUDE.md](./CLAUDE.md) を参照。
 
-This project is a starting point for a Flutter application.
+## 開発
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter run
+```

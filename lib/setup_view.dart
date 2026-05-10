@@ -99,7 +99,7 @@ class _StepIntro extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text(
-          'IgniteBody へようこそ！',
+          'Pet Reps へようこそ！',
           style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 26,
