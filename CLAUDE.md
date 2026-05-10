@@ -67,4 +67,4 @@
   - バグだが優先度低めで次回まとめて対応するもの
 - **本文に含める**: 問題 / 影響 / 修正案 / 関連ファイル（行番号 + シンボル名を併記。コード変更で行はズレる前提）
 - **ラベル**: `bug` / `enhancement` を使い分け
-- **一覧確認**: `gh issue list --repo itnewcomer/IgniteBody`（※リポジトリのリネームは未実施。GitHub側を pet_reps にリネームしたら更新する）
+- **一覧確認**: `gh issue list --repo itnewcomer/PetReps`
