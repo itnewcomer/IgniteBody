@@ -4,6 +4,7 @@ import 'app_colors.dart';
 import 'home_view.dart';
 import 'workout_view.dart';
 import 'growth_view.dart';
+import 'pet_view.dart';
 import 'settings_view.dart';
 import 'setup_view.dart';
 import 'models.dart';
@@ -18,8 +19,6 @@ void main() async {
   await Hive.openBox('videos');
   // 旧データの gainRates 移行
   ExerciseStore.migrateIfNeeded();
-  // デトレーニング適用
-  BodyProfile.applyDetraining();
   runApp(const IgniteBodyApp());
 }
 
@@ -81,6 +80,7 @@ class MainTabView extends StatefulWidget {
 
 class _MainTabViewState extends State<MainTabView> {
   int _selectedIndex = 0;
+  int _lastLevelUpSeq = 0;
 
   final _tabs = const [
     HomeView(),
@@ -89,13 +89,45 @@ class _MainTabViewState extends State<MainTabView> {
     SettingsView(),
   ];
 
-  final _labels = ['ホーム', '動く', '成長', '設定'];
+  final _labels = ['ホーム', '記録', '成長', '設定'];
   final _icons = [
     Icons.home_rounded,
-    Icons.fitness_center_rounded,
+    Icons.edit_note_rounded,
     Icons.trending_up_rounded,
     Icons.settings_rounded,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    LevelUpEvents.lastEvent.addListener(_onLevelUp);
+  }
+
+  @override
+  void dispose() {
+    LevelUpEvents.lastEvent.removeListener(_onLevelUp);
+    super.dispose();
+  }
+
+  void _onLevelUp() {
+    final e = LevelUpEvents.lastEvent.value;
+    if (e == null || e.sequence == _lastLevelUpSeq) return;
+    _lastLevelUpSeq = e.sequence;
+    // ゲインバブルが見える時間を少し残してから演出
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder(
+          opaque: false,
+          barrierDismissible: false,
+          pageBuilder: (_, __, ___) => EvolutionScreen(event: e),
+          transitionDuration: const Duration(milliseconds: 250),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

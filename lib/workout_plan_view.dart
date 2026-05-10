@@ -767,17 +767,20 @@ class _PlanTimerRunnerState extends State<_PlanTimerRunner> {
   }
 
   void _save(bool completed) {
-    final xp = LevelSystem.xpFor(_elapsed);
     final gains = <String, double>{};
     for (final axis in StatAxis.values) {
       final rate = widget.exercise.gainFor(axis);
       if (rate > 0) {
         gains[axis.name] = rate *
             (_elapsed / 60.0) *
-            BodyProfile.buildType.multiplierFor(axis) *
             0.05;
       }
     }
+    final gainsAxisMap = {
+      for (final e in gains.entries)
+        StatAxis.values.firstWhere((a) => a.name == e.key): e.value
+    };
+    final xp = LevelSystem.xpForGains(gainsAxisMap);
     SessionStore.save(WorkoutSession(
       exerciseName: widget.exercise.name,
       exerciseIcon: widget.exercise.icon,
@@ -793,6 +796,7 @@ class _PlanTimerRunnerState extends State<_PlanTimerRunner> {
       final a = StatAxis.values.firstWhere((ax) => ax.name == k);
       BodyProfile.addGain(a, v);
     });
+    WorkoutEvents.emitSet(gains, xp);
   }
 
   @override
@@ -945,7 +949,6 @@ class _PlanStrengthRunnerState extends State<_PlanStrengthRunner> {
   }
 
   void _save() {
-    final xp = LevelSystem.xpForVolume(_completedSets, _reps, _weight);
     final gains = <String, double>{};
     for (final axis in StatAxis.values) {
       final rate = widget.exercise.gainFor(axis);
@@ -954,10 +957,14 @@ class _PlanStrengthRunnerState extends State<_PlanStrengthRunner> {
             _completedSets *
             (_reps / 10.0) *
             (1.0 + _weight / 100.0) *
-            BodyProfile.buildType.multiplierFor(axis) *
             0.1;
       }
     }
+    final gainsAxisMap = {
+      for (final e in gains.entries)
+        StatAxis.values.firstWhere((a) => a.name == e.key): e.value
+    };
+    final xp = LevelSystem.xpForGains(gainsAxisMap);
     SessionStore.save(WorkoutSession(
       exerciseName: widget.exercise.name,
       exerciseIcon: widget.exercise.icon,
@@ -976,6 +983,7 @@ class _PlanStrengthRunnerState extends State<_PlanStrengthRunner> {
       final a = StatAxis.values.firstWhere((ax) => ax.name == k);
       BodyProfile.addGain(a, v);
     });
+    WorkoutEvents.emitSet(gains, xp);
   }
 
   @override

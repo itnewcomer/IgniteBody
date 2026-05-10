@@ -43,26 +43,9 @@ void main() {
       expect(p, closeTo(0.5, 0.01));
     });
 
-    // xpFor: base = (seconds / 30).floor() + bonus(300秒以上で+5)
-    test('30秒 → 1 XP', () {
-      expect(LevelSystem.xpFor(30), 1);
-    });
-
-    test('60秒 → 2 XP', () {
-      expect(LevelSystem.xpFor(60), 2);
-    });
-
-    test('300秒（5分）→ 15 XP (10 + 5bonus)', () {
-      expect(LevelSystem.xpFor(300), 15);
-    });
-
-    test('299秒 → 9 XP (bonus なし)', () {
-      expect(LevelSystem.xpFor(299), 9);
-    });
-
-    test('avatar は 10段階', () {
+    test('PetEvolution.emoji は 10段階', () {
       for (int i = 0; i <= 9; i++) {
-        expect(LevelSystem.avatar(i), isNotEmpty);
+        expect(PetEvolution.emoji(i, StatAxis.chest), isNotEmpty);
       }
     });
 
@@ -72,50 +55,16 @@ void main() {
       }
     });
 
-    // xpForVolume: sets * reps * (1 + weight/50)
-    test('xpForVolume: 3×10 自重 → 30 XP', () {
-      expect(LevelSystem.xpForVolume(3, 10, 0), 30);
+    // xpForGains: ゲイン合計 × 100
+    test('xpForGains: 空 Map → 0 XP', () {
+      expect(LevelSystem.xpForGains({}), 0);
     });
 
-    test('xpForVolume: 3×10 @50kg → 60 XP (weight bonus ×2)', () {
-      expect(LevelSystem.xpForVolume(3, 10, 50), 60);
-    });
-  });
-
-  // ── BuildType ─────────────────────────────────────────
-
-  group('BuildType', () {
-    test('standard は全軸が 1.0', () {
-      for (final axis in StatAxis.values) {
-        expect(BuildType.standard.multiplierFor(axis), 1.0);
-      }
-    });
-
-    test('lower は legs の multiplier が最大', () {
-      final legsMultiplier = BuildType.lower.multiplierFor(StatAxis.legs);
-      for (final axis in StatAxis.values) {
-        expect(legsMultiplier,
-            greaterThanOrEqualTo(BuildType.lower.multiplierFor(axis)));
-      }
-    });
-
-    test('upper は chest の multiplier が高い', () {
-      expect(BuildType.upper.multiplierFor(StatAxis.chest),
-          greaterThan(BuildType.upper.multiplierFor(StatAxis.legs)));
-    });
-
-    test('全 BuildType に label と icon がある', () {
-      for (final bt in BuildType.values) {
-        expect(bt.label, isNotEmpty);
-        expect(bt.icon, isNotEmpty);
-        expect(bt.description, isNotEmpty);
-      }
-    });
-
-    test('multipliers の長さは StatAxis.values の長さと一致', () {
-      for (final bt in BuildType.values) {
-        expect(bt.multipliers.length, StatAxis.values.length);
-      }
+    test('xpForGains: chest=0.5 + arms=0.3 → 80 XP', () {
+      expect(
+        LevelSystem.xpForGains({StatAxis.chest: 0.5, StatAxis.arms: 0.3}),
+        80,
+      );
     });
   });
 

@@ -12,13 +12,12 @@ class SetupView extends StatefulWidget {
 
 class _SetupViewState extends State<SetupView> {
   int _step = 0;
-  BuildType _selectedBuildType = BuildType.standard;
+  static const _stepCount = 3;
 
   void _next() {
-    if (_step < 3) {
+    if (_step < _stepCount - 1) {
       setState(() => _step++);
     } else {
-      BodyProfile.setBuildType(_selectedBuildType);
       BodyProfile.completeSetup();
       widget.onComplete();
     }
@@ -36,7 +35,7 @@ class _SetupViewState extends State<SetupView> {
               // ステップインジケーター
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (i) => AnimatedContainer(
+                children: List.generate(_stepCount, (i) => AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   width: i == _step ? 24 : 8,
@@ -64,7 +63,7 @@ class _SetupViewState extends State<SetupView> {
                   ),
                   onPressed: _next,
                   child: Text(
-                    _step < 3 ? '次へ' : 'はじめる！',
+                    _step < _stepCount - 1 ? '次へ' : 'はじめる！',
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -84,12 +83,7 @@ class _SetupViewState extends State<SetupView> {
       case 1:
         return _StepAxes();
       case 2:
-        return _StepBuildType(
-          selected: _selectedBuildType,
-          onSelect: (bt) => setState(() => _selectedBuildType = bt),
-        );
-      case 3:
-        return _StepEgg(buildType: _selectedBuildType);
+        return _StepEgg();
       default:
         return const SizedBox();
     }
@@ -273,105 +267,17 @@ class _AxisRow extends StatelessWidget {
   }
 }
 
-// ── Step 2: ビルドタイプ選択 ────────────────────────────
-
-class _StepBuildType extends StatelessWidget {
-  final BuildType selected;
-  final ValueChanged<BuildType> onSelect;
-
-  const _StepBuildType({required this.selected, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'ビルドタイプを選ぼう',
-          style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'あなたの目標に合ったスタイルを選ぶと\n対応する部位のゲインがアップします',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: ListView(
-            children: BuildType.values.map((bt) {
-              final isSelected = bt == selected;
-              return GestureDetector(
-                onTap: () => onSelect(bt),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.ignite.withValues(alpha: 0.15)
-                        : AppColors.card,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.ignite
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(bt.icon,
-                          style: const TextStyle(fontSize: 28)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(bt.label,
-                                style: TextStyle(
-                                    color: isSelected
-                                        ? AppColors.ignite
-                                        : AppColors.textPrimary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
-                            Text(bt.description,
-                                style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      if (isSelected)
-                        const Icon(Icons.check_circle_rounded,
-                            color: AppColors.ignite),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Step 3: 卵プレビュー ────────────────────────────────
+// ── Step 2: 卵プレビュー ────────────────────────────────
 
 class _StepEgg extends StatelessWidget {
-  final BuildType buildType;
-  const _StepEgg({required this.buildType});
-
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('🥚', style: TextStyle(fontSize: 100)),
-        const SizedBox(height: 24),
-        const Text(
+      children: const [
+        Text('🥚', style: TextStyle(fontSize: 100)),
+        SizedBox(height: 24),
+        Text(
           'キミのパートナー誕生！',
           style: TextStyle(
               color: AppColors.textPrimary,
@@ -379,34 +285,12 @@ class _StepEgg extends StatelessWidget {
               fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 12),
-        const Text(
-          'この卵は運動するたびに成長し\nやがて進化していくぞ！',
+        SizedBox(height: 12),
+        Text(
+          'この卵は運動するたびに成長し\nやがて進化していくぞ！\n育った部位によって進化先が変わる！',
           style: TextStyle(
               color: AppColors.textSecondary, fontSize: 16, height: 1.6),
           textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(buildType.icon, style: const TextStyle(fontSize: 24)),
-              const SizedBox(width: 10),
-              Text(
-                buildType.label,
-                style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16),
-              ),
-            ],
-          ),
         ),
       ],
     );

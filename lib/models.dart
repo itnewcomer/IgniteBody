@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'exercise_database.dart';
 
@@ -16,32 +17,158 @@ enum StatAxis {
   final String icon;
 }
 
-// MARK: - BuildType（ビルドタイプ）
+// MARK: - WorkoutEvents（記録時にペットへ通知するイベントバス）
 
-enum BuildType {
-  standard('バランス型', '⚖️', [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
-  power('パワー型', '🔥', [1.5, 1.2, 1.2, 1.5, 1.0, 0.8]),
-  endurance('持久型', '🏃', [0.8, 1.0, 0.8, 0.8, 1.5, 1.2]),
-  symmetric('対称型', '✨', [1.2, 1.2, 1.2, 1.2, 1.2, 1.2]),
-  upper('上半身型', '⬆️', [1.5, 1.5, 1.5, 1.5, 0.7, 0.7]),
-  lower('下半身型', '⬇️', [0.7, 0.8, 0.7, 0.7, 1.8, 1.5]);
+class WorkoutEvent {
+  final Map<StatAxis, double> gains;
+  final int xp;
+  final int sequence;
+  WorkoutEvent({required this.gains, required this.xp, required this.sequence});
+}
 
-  const BuildType(this.label, this.icon, this.multipliers);
-  final String label;
-  final String icon;
-  final List<double> multipliers;
+class WorkoutEvents {
+  static final ValueNotifier<WorkoutEvent?> lastEvent =
+      ValueNotifier<WorkoutEvent?>(null);
+  static int _seq = 0;
 
-  double multiplierFor(StatAxis axis) => multipliers[axis.index];
-
-  String get description {
-    switch (this) {
-      case BuildType.standard: return '全体的にバランスよく成長';
-      case BuildType.power: return '胸・腕の上半身筋力が得意';
-      case BuildType.endurance: return '脚・腹筋の持久力が得意';
-      case BuildType.symmetric: return '全軸が均等に少し強化';
-      case BuildType.upper: return '上半身全体が大きく伸びる';
-      case BuildType.lower: return '下半身・体幹が大きく伸びる';
+  /// セット/セッションが保存された直後に呼ぶ。Map のキーは StatAxis 名（"chest" など）。
+  static void emitSet(Map<String, double> gainsByName, int xp) {
+    _seq++;
+    final gains = <StatAxis, double>{};
+    for (final e in gainsByName.entries) {
+      final axis = StatAxis.values.firstWhere(
+        (a) => a.name == e.key,
+        orElse: () => StatAxis.chest,
+      );
+      gains[axis] = e.value;
     }
+    lastEvent.value = WorkoutEvent(gains: gains, xp: xp, sequence: _seq);
+  }
+}
+
+class LevelUpEvent {
+  final int fromLevel;
+  final int toLevel;
+  final StatAxis dominant;
+  final int sequence;
+  LevelUpEvent({
+    required this.fromLevel,
+    required this.toLevel,
+    required this.dominant,
+    required this.sequence,
+  });
+}
+
+class LevelUpEvents {
+  static final ValueNotifier<LevelUpEvent?> lastEvent =
+      ValueNotifier<LevelUpEvent?>(null);
+  static int _seq = 0;
+
+  static void emit(int from, int to, StatAxis dominant) {
+    _seq++;
+    lastEvent.value = LevelUpEvent(
+      fromLevel: from,
+      toLevel: to,
+      dominant: dominant,
+      sequence: _seq,
+    );
+  }
+}
+
+// MARK: - PetEvolution（ペットの進化段階）
+
+class PetEvolution {
+  static String emoji(int level, StatAxis dominant) {
+    if (level == 0) return '🥚';
+    if (level == 1) return _stage1(dominant);
+    if (level <= 3) return _stage2(dominant);
+    if (level <= 5) return _stage3(dominant);
+    if (level <= 7) return _stage4(dominant);
+    return _stage5(dominant);
+  }
+
+  static String _stage1(StatAxis dominant) => '🐣';
+
+  static String _stage2(StatAxis dominant) {
+    switch (dominant) {
+      case StatAxis.chest: return '🐥';
+      case StatAxis.back: return '🐦';
+      case StatAxis.shoulder: return '🦆';
+      case StatAxis.arms: return '🦁';
+      case StatAxis.legs: return '🐺';
+      case StatAxis.abs: return '🐊';
+    }
+  }
+
+  static String _stage3(StatAxis dominant) {
+    switch (dominant) {
+      case StatAxis.chest: return '🦅';
+      case StatAxis.back: return '🦅';
+      case StatAxis.shoulder: return '🦉';
+      case StatAxis.arms: return '🐯';
+      case StatAxis.legs: return '🐉';
+      case StatAxis.abs: return '🦖';
+    }
+  }
+
+  static String _stage4(StatAxis dominant) {
+    switch (dominant) {
+      case StatAxis.chest: return '⚡';
+      case StatAxis.back: return '🌩️';
+      case StatAxis.shoulder: return '✨';
+      case StatAxis.arms: return '🔥';
+      case StatAxis.legs: return '💨';
+      case StatAxis.abs: return '🌀';
+    }
+  }
+
+  static String _stage5(StatAxis dominant) => '🌟';
+
+  static String name(int level, StatAxis dominant) {
+    if (level == 0) return '???';
+    if (level == 1) return 'ベビー';
+    if (level <= 3) {
+      switch (dominant) {
+        case StatAxis.chest: return 'チェスター';
+        case StatAxis.back: return 'バッカー';
+        case StatAxis.shoulder: return 'ショルダー';
+        case StatAxis.arms: return 'アームズ';
+        case StatAxis.legs: return 'レガシー';
+        case StatAxis.abs: return 'コアラ';
+      }
+    }
+    if (level <= 5) {
+      switch (dominant) {
+        case StatAxis.chest: return 'チェスタードラゴン';
+        case StatAxis.back: return 'バックビースト';
+        case StatAxis.shoulder: return 'ショルダーウィング';
+        case StatAxis.arms: return 'アームタイガー';
+        case StatAxis.legs: return 'レッグドレイク';
+        case StatAxis.abs: return 'コアゴン';
+      }
+    }
+    if (level <= 7) return '${_stage4Label(dominant)}・改';
+    return 'IGNIS MAXIMUS';
+  }
+
+  static String _stage4Label(StatAxis dominant) {
+    switch (dominant) {
+      case StatAxis.chest: return 'サンダーバード';
+      case StatAxis.back: return 'ストームレイヴン';
+      case StatAxis.shoulder: return 'オーラフェニックス';
+      case StatAxis.arms: return 'ブレイズタイガー';
+      case StatAxis.legs: return 'テンペストウルフ';
+      case StatAxis.abs: return 'サイクロンビースト';
+    }
+  }
+
+  static String message(int level) {
+    if (level == 0) return '...zzz';
+    if (level == 1) return 'がんばってるね！';
+    if (level <= 3) return '一緒に鍛えよう！';
+    if (level <= 5) return '調子いいじゃないか！';
+    if (level <= 7) return 'すごい成長だ！';
+    return 'キミは本物のレジェンド！';
   }
 }
 
@@ -69,13 +196,6 @@ class LevelSystem {
     return (xp - current) / (next - current);
   }
 
-  static String avatar(int lv) {
-    const avatars = [
-      '🥚', '🐣', '🐥', '🦅', '⚡', '🔥', '💪', '🧠', '✨', '🌟'
-    ];
-    return avatars[lv.clamp(0, avatars.length - 1)];
-  }
-
   static String title(int lv) {
     const titles = [
       'まだ眠ってる体',
@@ -92,21 +212,10 @@ class LevelSystem {
     return titles[lv.clamp(0, titles.length - 1)];
   }
 
-  static int xpFor(int seconds) {
-    final base = (seconds / 30).floor().clamp(1, 999999);
-    final bonus = seconds >= 300 ? 5 : 0;
-    return base + bonus;
-  }
-
-  static int xpForVolume(int sets, int reps, double weight) {
-    final vol = sets * reps * (1.0 + weight / 50.0);
-    return vol.floor().clamp(1, 999999);
-  }
-
-  /// ゲイン合計 × 100（Swift互換）
+  /// ゲイン合計 × 100。XP の唯一の源泉。
   static int xpForGains(Map<StatAxis, double> gains) {
     final total = gains.values.fold(0.0, (a, b) => a + b);
-    return (total * 100).round().clamp(1, 999999);
+    return (total * 100).round().clamp(0, 999999);
   }
 }
 
@@ -118,17 +227,15 @@ class BodyProfile {
 
   // XP
   static int get totalXP => _box.get('totalXP', defaultValue: 0) as int;
-  static void addXP(int xp) => _box.put('totalXP', totalXP + xp);
-
-  // BuildType
-  static BuildType get buildType {
-    final name = _box.get('buildType', defaultValue: BuildType.standard.name) as String;
-    return BuildType.values.firstWhere(
-      (b) => b.name == name,
-      orElse: () => BuildType.standard,
-    );
+  static void addXP(int xp) {
+    if (xp <= 0) return;
+    final before = level;
+    _box.put('totalXP', totalXP + xp);
+    final after = level;
+    if (after > before) {
+      LevelUpEvents.emit(before, after, dominantStat);
+    }
   }
-  static void setBuildType(BuildType bt) => _box.put('buildType', bt.name);
 
   // Setup
   static bool get isSetupDone => _box.get('setupDone', defaultValue: false) as bool;
@@ -193,46 +300,6 @@ class BodyProfile {
 
   static double? get latestBodyWeight => bodyWeightHistory.lastOrNull?.value;
 
-  // ── デトレーニング（論文: Pelland 2026）─────────────────
-  // 1-7日: 変化なし
-  // 8-14日: -5%/週（余剰週数分）
-  // 15-28日: -10%/週
-  // 29日+: -15%/週（上限50%）
-  // 下限: peak × 50%
-
-  static void applyDetraining() {
-    final last = lastWorkoutDate;
-    if (last == null) return;
-    final today = DateTime.now();
-    final todayKey =
-        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final prevKey = _box.get('lastDetrainDate') as String?;
-    if (prevKey == todayKey) return; // 今日は適用済み
-    _box.put('lastDetrainDate', todayKey);
-
-    final days = DateTime(today.year, today.month, today.day)
-        .difference(DateTime(last.year, last.month, last.day))
-        .inDays;
-    if (days <= 7) return;
-
-    final excessWeeks = (days - 7) / 7.0;
-    final double decayRate;
-    if (days <= 14) {
-      decayRate = 0.05 * excessWeeks;
-    } else if (days <= 28) {
-      decayRate = 0.10 * excessWeeks;
-    } else {
-      decayRate = (0.15 * excessWeeks).clamp(0.0, 0.50);
-    }
-
-    for (final axis in StatAxis.values) {
-      final current = getStat(axis);
-      final floor = getPeak(axis) * 0.5;
-      final newVal = (current * (1.0 - decayRate)).clamp(floor, 100.0);
-      _box.put('stat_${axis.name}', newVal);
-    }
-  }
-
   static List<double> get allStats =>
       StatAxis.values.map((a) => getStat(a)).toList();
 
@@ -253,7 +320,7 @@ class BodyProfile {
   // Level shortcuts
   static int get level => LevelSystem.level(totalXP);
   static double get levelProgress => LevelSystem.progress(totalXP);
-  static String get avatar => LevelSystem.avatar(level);
+  static String get avatar => PetEvolution.emoji(level, dominantStat);
   static String get levelTitle => LevelSystem.title(level);
 
   // Reset
@@ -276,6 +343,7 @@ class WorkoutSession {
   final int? reps;
   final double? weight;
   final Map<String, double> statGains;
+  final List<Map<String, dynamic>> setDetails;
 
   WorkoutSession({
     required this.exerciseName,
@@ -289,7 +357,9 @@ class WorkoutSession {
     this.reps,
     this.weight,
     Map<String, double>? statGains,
-  }) : statGains = statGains ?? {};
+    List<Map<String, dynamic>>? setDetails,
+  })  : statGains = statGains ?? {},
+        setDetails = setDetails ?? [];
 
   Map<String, dynamic> toMap() => {
         'exerciseName': exerciseName,
@@ -303,6 +373,7 @@ class WorkoutSession {
         if (reps != null) 'reps': reps,
         if (weight != null) 'weight': weight,
         'statGains': statGains,
+        'setDetails': setDetails,
       };
 
   factory WorkoutSession.fromMap(Map map) => WorkoutSession(
@@ -321,6 +392,9 @@ class WorkoutSession {
                 (map['statGains'] as Map)
                     .map((k, v) => MapEntry(k.toString(), (v as num).toDouble())))
             : {},
+        setDetails: (map['setDetails'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
       );
 }
 

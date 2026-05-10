@@ -20,19 +20,15 @@ class HomeView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ヘッダー
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'IgniteBody',
                       style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 22,
                           fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      BodyProfile.buildType.icon,
-                      style: const TextStyle(fontSize: 24),
                     ),
                   ],
                 ),

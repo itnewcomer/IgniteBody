@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Claude Code per-user local settings
+.claude/
+
+# macOS duplicated build dirs / symlinks (e.g. "build 2")
+build [0-9]*/
+build [0-9]*

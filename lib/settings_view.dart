@@ -27,14 +27,6 @@ class SettingsView extends StatelessWidget {
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 20),
 
-                    // ビルドタイプ
-                    const Text('ビルドタイプ',
-                        style: TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13)),
-                    const SizedBox(height: 8),
-                    _BuildTypeSelector(),
-                    const SizedBox(height: 24),
-
                     // ステータス
                     const Text('現在のステータス',
                         style: TextStyle(
@@ -60,67 +52,6 @@ class SettingsView extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-// ── ビルドタイプ選択 ──────────────────────────────────────
-
-class _BuildTypeSelector extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final current = BodyProfile.buildType;
-    return Column(
-      children: BuildType.values.map((bt) {
-        final isSelected = bt == current;
-        return GestureDetector(
-          onTap: () => BodyProfile.setBuildType(bt),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.ignite.withValues(alpha: 0.12)
-                  : AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected ? AppColors.ignite : Colors.transparent,
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(bt.icon, style: const TextStyle(fontSize: 22)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bt.label,
-                        style: TextStyle(
-                          color: isSelected
-                              ? AppColors.ignite
-                              : AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        bt.description,
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  const Icon(Icons.check_circle_rounded,
-                      color: AppColors.ignite, size: 20),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

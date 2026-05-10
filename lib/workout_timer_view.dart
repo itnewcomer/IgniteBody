@@ -60,8 +60,12 @@ class _TimerViewState extends State<TimerView> {
     _timer?.cancel();
     _finished = true;
 
-    final xp = LevelSystem.xpFor(_elapsed);
     final gains = _computeGains();
+    final gainsAxisMap = {
+      for (final e in gains.entries)
+        StatAxis.values.firstWhere((a) => a.name == e.key): e.value
+    };
+    final xp = LevelSystem.xpForGains(gainsAxisMap);
     SessionStore.save(WorkoutSession(
       exerciseName: widget.exercise.name,
       exerciseIcon: widget.exercise.icon,
@@ -77,6 +81,7 @@ class _TimerViewState extends State<TimerView> {
       final axis = StatAxis.values.firstWhere((a) => a.name == k);
       BodyProfile.addGain(axis, v);
     });
+    WorkoutEvents.emitSet(gains, xp);
 
     if (mounted) {
       showDialog(
@@ -102,12 +107,20 @@ class _TimerViewState extends State<TimerView> {
       if (rate > 0) {
         final gain = rate *
             (_elapsed / 60.0) *
-            BodyProfile.buildType.multiplierFor(axis) *
             0.05;
         if (gain > 0) result[axis.name] = gain;
       }
     }
     return result;
+  }
+
+  int get _previewXP {
+    final gains = _computeGains();
+    final gainsAxisMap = {
+      for (final e in gains.entries)
+        StatAxis.values.firstWhere((a) => a.name == e.key): e.value
+    };
+    return LevelSystem.xpForGains(gainsAxisMap);
   }
 
   @override
@@ -165,7 +178,7 @@ class _TimerViewState extends State<TimerView> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('+${LevelSystem.xpFor(_elapsed)} XP',
+              Text('+$_previewXP XP',
                   style: const TextStyle(
                       color: AppColors.ignite, fontSize: 20,
                       fontWeight: FontWeight.bold)),
@@ -299,8 +312,12 @@ class _StrengthViewState extends State<StrengthView> {
     final avgWeight = _logs.isEmpty ? 0.0
         : _logs.map((l) => l.weight).reduce((a, b) => a + b) / _logs.length;
     final totalReps = _logs.fold(0, (s, l) => s + l.reps);
-    final xp = LevelSystem.xpForVolume(completedSets, totalReps ~/ completedSets, avgWeight);
     final gains = _computeGains(completedSets, totalReps ~/ completedSets, avgWeight);
+    final gainsAxisMap = {
+      for (final e in gains.entries)
+        StatAxis.values.firstWhere((a) => a.name == e.key): e.value
+    };
+    final xp = LevelSystem.xpForGains(gainsAxisMap);
     final volume = completedSets * (totalReps ~/ completedSets) * (avgWeight > 0 ? avgWeight : 1.0);
 
     // PR判定：重量PR優先、次にボリュームPR
@@ -330,6 +347,7 @@ class _StrengthViewState extends State<StrengthView> {
       final axis = StatAxis.values.firstWhere((a) => a.name == k);
       BodyProfile.addGain(axis, v);
     });
+    WorkoutEvents.emitSet(gains, xp);
 
     showDialog(
       context: context,
@@ -358,7 +376,6 @@ class _StrengthViewState extends State<StrengthView> {
             sets *
             (reps / 10.0) *
             (1.0 + weight / 100.0) *
-            BodyProfile.buildType.multiplierFor(axis) *
             0.1;
         if (gain > 0) result[axis.name] = gain;
       }

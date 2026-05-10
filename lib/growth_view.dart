@@ -268,13 +268,13 @@ class _DetrainWarning extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Text(isSerious ? '⚠️' : '🕐', style: const TextStyle(fontSize: 16)),
+            Text(isSerious ? '🍖' : '🕐', style: const TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 isSerious
-                    ? '${days}日サボり中。ステータスが少し下がっている'
-                    : '最後のワークアウトから${days}日。そろそろ動こう',
+                    ? '$days日サボり中。ペットがお腹を空かせているよ'
+                    : '最後のワークアウトから$days日。そろそろ動こう',
                 style: TextStyle(
                   color: isSerious ? Colors.yellow : AppColors.textSecondary,
                   fontSize: 12,
